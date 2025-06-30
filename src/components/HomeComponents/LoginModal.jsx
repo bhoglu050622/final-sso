@@ -4,7 +4,8 @@ import { FaGithub } from "react-icons/fa";
 import { assets } from '../../assets/assets';
 import { MdEmail } from "react-icons/md";
 import { IoPersonSharp } from "react-icons/io5";
-import { generateOtp, verifyOtp } from '../../services/authService'; // Mock service
+// Updated to use new function name for clarity with real API calls
+import { generateOtp, loginSignupWithOtp } from '../../services/authService';
 
 // Helper function to get returnUrl from query params
 const getReturnUrl = () => {
@@ -55,11 +56,11 @@ const LoginModal = ({ onClose }) => {
     setIsLoading(true);
     setMessage('');
     try {
-      // TODO: Replace with actual API call
-      const response = await generateOtp(email);
+      // Call backend to send OTP via Graphy
+      const response = await generateOtp(email, name); // Pass name if captured
       if (response.success) {
         setShowOtpScreen(true);
-        setMessage(`OTP sent to ${email} (mocked). Please check and enter below.`);
+        setMessage(response.message || `OTP sent to ${email}. Please check and enter below.`);
       } else {
         setMessage(response.message || 'Failed to send OTP.');
       }
@@ -121,23 +122,28 @@ const LoginModal = ({ onClose }) => {
     setIsLoading(true);
     setMessage('');
     try {
-      // TODO: Replace with actual API call
-      const response = await verifyOtp(email, enteredOtp);
+      // Call backend to login/signup with OTP via Graphy
+      // Name is passed again here; Graphy's /otp/login can use it for signup if user is new.
+      // course_ids can be added here if you have a mechanism to select/define them.
+      const response = await loginSignupWithOtp(email, enteredOtp, name /*, course_ids */);
       if (response.success && response.ssoToken) {
-        setMessage('OTP Verified! Redirecting to Graphy...');
-        // Construct Graphy URL
-        const graphyBaseUrl = import.meta.env.VITE_GRAPHY_URL || 'https://<your-graphy-domain>.graphy.com';
-        // Ensure returnUrl starts with a slash if it's a path, or is a full URL
+        setMessage(response.message || 'Login/Signup successful! Redirecting to Graphy...');
+
+        const graphyBaseUrl = import.meta.env.VITE_GRAPHY_URL; // Should be defined in .env
+        if (!graphyBaseUrl) {
+            setMessage("Error: Graphy URL is not configured in frontend environment variables (VITE_GRAPHY_URL). Cannot redirect.");
+            setIsLoading(false);
+            return;
+        }
         const targetPath = returnUrl.startsWith('/') ? returnUrl : `/${returnUrl}`;
         const redirectUrl = `${graphyBaseUrl}${targetPath}?ssoToken=${response.ssoToken}`;
 
-        // Perform redirection
         window.location.href = redirectUrl;
       } else {
-        setMessage(response.message || 'OTP verification failed.');
+        setMessage(response.message || 'OTP Login/Signup failed.');
       }
     } catch (error) {
-      setMessage(error.message || 'An error occurred during OTP verification.');
+      setMessage(error.message || 'An error occurred during OTP Login/Signup.');
     }
     setIsLoading(false);
   };
