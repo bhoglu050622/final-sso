@@ -47,15 +47,18 @@
 
 
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { assets } from '../assets/assets';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import LoginModal from './HomeComponents/LoginModal';
 
 
 const Header = () => {
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [showLogout, setShowLogout] = useState(false)
+  const [showLogoutDropdown, setShowLogoutDropdown] = useState(false); // For desktop logout
+  const [isLoggedIn, setIsLoggedIn] = useState(false); // Track login state
+  const navigate = useNavigate();
+
 
   // mobile menus
   const [visible, setVisible] = useState(false)
@@ -63,6 +66,50 @@ const Header = () => {
   const activeClass =
     'inline-block py-2 md:py-3 px-[6px] md:px-2 rounded border border-[rgba(255,255,255,0.64)] bg-[linear-gradient(180deg,_rgba(0,0,0,0.1)_16.67%,_rgba(255,242,0,0.1)_100%)]  font-normal text-[14px] lg:text-[16px] leading-[100%] tracking-[0] align-middle';
   const inActiveClass = 'inline-block py-2 md:py-3 px-[6px] md:px-2 rounded  font-normal text-[14px] lg:text-[16px] leading-[100%] tracking-[0] align-middle';
+
+  // Check for Graphy token on mount and on storage change
+  useEffect(() => {
+    const checkLoginStatus = () => {
+      // This is a simplified check. Graphy token might be in an httpOnly cookie managed by Graphy's domain.
+      // If Graphy sets a specific item in localStorage upon successful login via SSO token, check for that.
+      // For now, let's assume a dummy 'graphyToken' is set by our OAuth callback for demonstration.
+      const token = localStorage.getItem('graphyToken'); // From our mock OAuth flow
+      setIsLoggedIn(!!token);
+    };
+
+    checkLoginStatus();
+    window.addEventListener('storage', checkLoginStatus); // Listen for changes from other tabs
+
+    return () => {
+      window.removeEventListener('storage', checkLoginStatus);
+    };
+  }, []);
+
+  const handleLogout = () => {
+    // TODO: Replace with actual Graphy logout mechanism if available.
+    // This might involve redirecting to a Graphy logout URL or calling a Graphy API.
+    // Also, call your own backend to clear any server-side session if one exists.
+
+    localStorage.removeItem('graphyToken'); // Clear token from our mock OAuth flow
+    // Potentially: localStorage.removeItem('ssoToken'); // If Email OTP token was stored
+    setIsLoggedIn(false);
+    setShowLogoutDropdown(false);
+    setVisible(false); // Close mobile menu if open
+
+    // TODO: If Graphy provides a logout URL that this app should call or redirect to:
+    // const graphyLogoutUrl = import.meta.env.VITE_GRAPHY_LOGOUT_URL;
+    // if (graphyLogoutUrl) {
+    //   window.location.href = graphyLogoutUrl; // This might then redirect back to your app's configured logout page
+    // } else {
+    //   navigate('/'); // Redirect to home page or a logged-out page
+    // }
+
+    // For now, just navigate to home
+    navigate('/');
+    console.log("User logged out (frontend mock).");
+    // Add a comment: `// TODO: Implement server-side session invalidation if Graphy logout callback is configured.`
+  };
+
 
   return (
 
@@ -74,7 +121,7 @@ const Header = () => {
         <div className="flex justify-between items-center py-4 px-3 md:px-14 lg:px-20">
 
           {/* logo */}
-          <img src={assets.logo_ex} alt="logo" />
+          <NavLink to="/"><img src={assets.logo_ex} alt="logo" /></NavLink>
 
           {/* pages */}
           <ul className="sm:flex hidden bg-[#141414] items-center text-white gap-1 p-1 rounded-lg  ">
@@ -95,40 +142,52 @@ const Header = () => {
             </li>
           </ul>
 
-          {/* login */}
-          <div className="sm:block hidden">
-            <button className="text-black  py-2 px-[15px] md:py-[10.5px] lg:px-[21.5px] text-[14px] lg:text-[16px] bg-[#FFF200] font-medium text-base rounded-[4px] " onClick={() => setShowLoginModal(true)}>
-              Login
-            </button>
+          {/* login/logout buttons */}
+          <div className="sm:block hidden relative">
+            {isLoggedIn ? (
+              <div className='flex gap-3 items-center'>
+                {/* Optional: Dashboard link */}
+                {/* <button
+                  onClick={() => window.location.href = `${import.meta.env.VITE_GRAPHY_URL}/dashboard`} // Redirect to Graphy dashboard
+                  className='flex gap-2 items-center py-[10px] px-[20px] bg-[#F2F2F21A] rounded-md text-white font-inter font-normal text-[16px]'
+                >
+                  Dashboard <img src={assets.rocket} alt="" className='w-4 h-4'/>
+                </button> */}
 
-
-            {/* dashboard and logout */}
-            {/* <div className='flex gap-3 items-center relative'>
-              <div className='flex gap-2 py-[10px] px-[20px] bg-[#F2F2F21A] rounded-md'>
-                <p className='text-white font-inter font-normal text-[16px] 
-                '>Dashboard</p>
-                <img src={assets.rocket} alt="" />
-              </div>
-
-              <div className='flex gap-2 items-center' onClick={()=> setShowLogout((prev)=>!prev)}>
-                <button className='p-[10px] bg-yellow rounded-md font-inter font-bold text-[16px] 
-              '>GD</button>
-                <img src={assets.down_arrow} alt="" />
-              </div>
-
-              {showLogout && 
-              <div className='absolute bottom-[-60px] right-0'>
-                <div className='flex gap-14 bg-[#1F1F1F] py-2 px-3 rounded-lg border-4 border-[#000000]'>
-                  <p className='text-white font-inter font-normal text-[16px]'>Logout</p>
-                  <img src={assets.logout} alt="" />
+                <div className='flex gap-2 items-center cursor-pointer' onClick={()=> setShowLogoutDropdown((prev)=>!prev)}>
+                  <button className='p-[10px] bg-yellow rounded-md font-inter font-bold text-[16px] text-black'>
+                    {/* Placeholder for user initials or icon */}
+                    U
+                  </button>
+                  <img src={assets.down_arrow} alt="dropdown" className={`w-4 h-4 transition-transform ${showLogoutDropdown ? 'rotate-180' : ''}`} />
                 </div>
-              </div>
-              } 
 
-            </div> */}
+                {showLogoutDropdown && (
+                  <div className='absolute top-full right-0 mt-2 w-48 bg-[#1F1F1F] rounded-lg shadow-lg py-1 z-20 border border-gray-700'>
+                    <button
+                      onClick={handleLogout}
+                      className='w-full flex items-center justify-between px-4 py-2 text-left text-white hover:bg-gray-700'
+                    >
+                      <span>Logout</span>
+                      <img src={assets.logout} alt="logout icon" className='w-5 h-5'/>
+                    </button>
+                    {/* TODO: Add link to Graphy profile/settings if needed */}
+                    {/* <a href={`${import.meta.env.VITE_GRAPHY_URL}/my-profile`} target="_blank" rel="noopener noreferrer" className='block px-4 py-2 text-white hover:bg-gray-700'>Profile</a> */}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <button
+                className="text-black py-2 px-[15px] md:py-[10.5px] lg:px-[21.5px] text-[14px] lg:text-[16px] bg-[#FFF200] font-medium rounded-[4px]"
+                onClick={() => setShowLoginModal(true)}
+              >
+                Login
+              </button>
+            )}
           </div>
 
-          <div className='sm:hidden block' onClick={() => { setVisible((prev) => !prev) }}>
+          {/* Mobile menu icon */}
+          <div className='sm:hidden block' onClick={() => setVisible((prev) => !prev) }>
             <img src={assets.menu} alt="" className='h-6 w-6' />
           </div>
 
@@ -169,16 +228,25 @@ const Header = () => {
                 </ul>
               </div>
 
-              {/* Login Button (Bottom) */}
-              <button
-                onClick={() => {
-                  setShowLoginModal(true);
-                  setVisible(false);
-                }}
-                className="bg-yellow text-black py-2 rounded-md font-inter font-medium text-[16px] leading-[100%] tracking-[0] align-middle">
-                Log in
-              </button>
-
+              {/* Login/Logout Button (Bottom) */}
+              {isLoggedIn ? (
+                <button
+                  onClick={handleLogout}
+                  className="bg-red-500 text-white py-3 rounded-md font-inter font-medium text-[16px] leading-[100%] tracking-[0] align-middle w-full"
+                >
+                  Logout
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    setShowLoginModal(true);
+                    setVisible(false);
+                  }}
+                  className="bg-yellow text-black py-3 rounded-md font-inter font-medium text-[16px] leading-[100%] tracking-[0] align-middle w-full"
+                >
+                  Log in
+                </button>
+              )}
             </div>
           </div>
 
